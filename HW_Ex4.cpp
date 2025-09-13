@@ -13,7 +13,7 @@ void setup() {
 }
 
 void loop() {
-  infra = digitalRead(D3); // Read the analog value from A0 pin
+  infra = digitalRead(D3); // Read the digital value from the D3 pin
   if (infra == 1) {
     strcpy(status, "Sensor  is  clear"); //updating status if sensor is clear
   }
