@@ -7,20 +7,26 @@ void setup() {
   iot.connect("wifi", "pwd", "uid");   //link: https://iot.roboninja.in/
 }
 
+int manual = 0;
+// 0 = automatic
 void loop() {
-  // put your main code here, to run repeatedly:
-  iot.ReadAll(); // Read all values from the cloud
-
-  // Read button state on D0 and upload it
   iot.SyncIN("D2");
-  iot.SyncIN("D5");
   delay(50);  // wait 50 milliseconds
+  iot.SyncOut("D6"); //connecting to D6.
+  iot.ReadAll(); // to update manual
 
-  if (digitalRead(D2) == LOW) {
-    digitalWrite(D5, HIGH);
+  manual = digitalRead(D6);
+
+  if (manual == 0) {
+    if (digitalRead(D2) == LOW) {
+      digitalWrite(D5, HIGH);
+    }
+    else {
+      digitalWrite(D5, LOW);
+    }
+    iot.SyncIN("D5");
   }
-  delay(100); //wait 100 milliseconds
-  if (digitalRead(D2) == HIGH) {
-    digitalWrite(D5, LOW);
+  else {
+    iot.ReadAll();
   }
 }

@@ -1,142 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Is the Path Clear?</title>
-  <style>
-    body {
-      margin:0; padding:20px; font-family:sans-serif;
-      display:flex; flex-direction:column; align-items:center;
-      background: rgb(208,255,207);
-      min-height: 100vh;
-    }
-    h1 { margin-bottom:30px; }
-    .cards { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; }
-    .card { background: rgb(23,115,21); color:white; border-radius:12px; padding:20px;
-      min-width:220px; max-width:300px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.2);
-      transition: background .2s ease; position:relative;
-    }
-    .card.disabled { background:lightgrey !important; color:#444 !important; }
-    .toggle-row { display:flex; justify-content:space-between; align-items:center; gap:5px; margin-top:10px; }
-    .toggle-button {
-      width:60px; height:30px; background:#ddd; border-radius:15px; position:relative; cursor:pointer;
-    }
-    .toggle-button::before {
-      content:""; position:absolute; top:2px; left:2px; width:26px; height:26px; border-radius:50%; background:white;
-      transition:left .2s ease;
-    }
-    .toggle-button.active { background:#4caf50; }
-    .toggle-button.active::before { left:32px; }
-    .alarm { display:none; margin-left:6px; animation:blink 1s infinite; }
-    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
-    select { padding:5px; border-radius:5px; }
-  </style>
+<meta charset="UTF-8">
+<title>Ninja IoT Dashboard</title>
+<style>
+body { background-color: rgb(208,255,207); font-family: Arial, sans-serif; text-align: center; }
+.card { background-color: rgb(23,115,21); color: white; padding: 20px; margin: 10px auto; border-radius: 12px; width: 250px; min-height: 120px; }
+.disabled { background-color: lightgray !important; pointer-events: none; }
+button { padding: 10px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; }
+</style>
 </head>
 <body>
-  <h1>Is the Path Clear?</h1>
-  <div class="cards">
-    <div id="ledCard" class="card">
-      <h2>LED Control</h2>
-      <div class="toggle-row">
-        <span>Off</span>
-        <div id="ledToggle" class="toggle-button"></div>
-        <span>On</span>
-      </div>
-    </div>
-    <div id="distanceCard" class="card">
-      <h2>Distance <span id="alarmIcon" class="alarm">🚨</span></h2>
-      <p>Status: <span id="distanceStatus">Loading...</span></p>
-    </div>
-    <div class="card">
-      <h2>Mode</h2>
-      <select id="modeSelect">
-        <option value="Automatic">Automatic</option>
-        <option value="Manual">Manual</option>
-      </select>
-    </div>
-  </div>
+<h1>Ninja IoT Dashboard</h1>
 
-  <audio id="beepSound">
-    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
-  </audio>
+<div class="card" id="ledCard">
+  <h2>LED</h2>
+  <button id="ledToggle">OFF</button>
+</div>
+
+<div class="card" id="distanceCard">
+  <h2>Distance</h2>
+  <p id="distanceStatus">Loading...</p>
+</div>
+
+<div class="card">
+  <h2>Mode</h2>
+  <select id="modeSelect">
+    <option value="0">Automatic</option>
+    <option value="1">Manual</option>
+  </select>
+</div>
 
 <script>
-  const UID = "NB09";
-  const baseURL = "https://iot.roboninja.in/index.php?";
-  const ledCard = document.getElementById("ledCard");
-  const ledToggle = document.getElementById("ledToggle");
-  const distanceCard = document.getElementById("distanceCard");
-  const distanceStatus = document.getElementById("distanceStatus");
-  const alarmIcon = document.getElementById("alarmIcon");
-  const modeSelect = document.getElementById("modeSelect");
-  const beepSound = document.getElementById("beepSound");
+const UID = "NB09";
+const BASE_URL = "https://iot.roboninja.in/index.php?";
 
-  let mode = modeSelect.value;
-  let lastDistance = null;
+const ledToggle = document.getElementById("ledToggle");
+const distanceStatus = document.getElementById("distanceStatus");
+const modeSelect = document.getElementById("modeSelect");
+const ledCard = document.getElementById("ledCard");
 
-  // toggle LED manually
-  ledToggle.addEventListener("click", () => {
-    if(mode !== "Manual") return;
-    const active = ledToggle.classList.contains("active");
-    const newState = !active ? 1 : 0;
-    ledToggle.classList.toggle("active", newState===1);
-    fetch(`${baseURL}action=write&UID=${UID}&D5=${newState}`);
-  });
+// Poll device
+async function pollDevice() {
+  try {
+    const [d2, d5, d6] = await Promise.all([
+      fetch(`${BASE_URL}action=read&UID=${UID}&D2`).then(r=>r.text()),
+      fetch(`${BASE_URL}action=read&UID=${UID}&D5`).then(r=>r.text()),
+      fetch(`${BASE_URL}action=read&UID=${UID}&D6`).then(r=>r.text())
+    ]);
 
-  modeSelect.addEventListener("change", () => {
-    mode = modeSelect.value;
-    if(mode==="Manual"){
-      ledCard.classList.remove("disabled");
-      ledToggle.style.pointerEvents="auto";
-    }else{
+    // Update distance
+    distanceStatus.innerText = (parseInt(d2) === 0) ? "Object blocking path" : "Pathway clear";
+
+    // Update LED state
+    ledToggle.innerText = (parseInt(d5) === 1) ? "ON" : "OFF";
+
+    // Update mode dropdown
+    modeSelect.value = d6;
+    if (parseInt(d6) === 0) {
       ledCard.classList.add("disabled");
-      ledToggle.style.pointerEvents="none";
+      ledToggle.disabled = true;
+    } else {
+      ledCard.classList.remove("disabled");
+      ledToggle.disabled = false;
     }
-  });
-
-  async function updateDistance(){
-    try{
-      const res = await fetch(`${baseURL}action=read&UID=${UID}&D2`);
-      const txt = await res.text();
-      const val = parseInt(txt.trim())===1 ? 1 : 0; // 1 = clear, 0 = blocked
-
-      if(mode==="Automatic"){
-        if(val===0){
-          distanceStatus.textContent="Object blocking path";
-          distanceCard.style.backgroundColor="#ff6b6b";
-          alarmIcon.style.display="inline";
-          if(lastDistance!==0) beepSound.play();
-          ledToggle.classList.add("active");
-          fetch(`${baseURL}action=write&UID=${UID}&D5=1`);
-        }else{
-          distanceStatus.textContent="Pathway clear";
-          distanceCard.style.backgroundColor="rgb(23,115,21)";
-          alarmIcon.style.display="none";
-          ledToggle.classList.remove("active");
-          fetch(`${baseURL}action=write&UID=${UID}&D5=0`);
-        }
-      }else{ // Manual mode
-        if(val===0){
-          distanceStatus.textContent="Object blocking path";
-          distanceCard.style.backgroundColor="#ff6b6b";
-          alarmIcon.style.display="inline";
-          if(lastDistance!==0) beepSound.play();
-        }else{
-          distanceStatus.textContent="Pathway clear";
-          distanceCard.style.backgroundColor="rgb(23,115,21)";
-          alarmIcon.style.display="none";
-        }
-      }
-
-      lastDistance = val;
-    }catch(e){
-      distanceStatus.textContent="Error reading sensor";
-      console.error(e);
-    }
+  } catch (err) {
+    console.error("Error polling device:", err);
   }
+}
 
-  setInterval(updateDistance,2000);
-  updateDistance();
+// Manual LED toggle
+ledToggle.addEventListener("click", async () => {
+  if (parseInt(modeSelect.value) === 1) {
+    const newState = (ledToggle.innerText === "OFF") ? 1 : 0;
+    await fetch(`${BASE_URL}action=write&UID=${UID}&D5=${newState}`);
+  }
+});
+
+// Mode change
+modeSelect.addEventListener("change", async () => {
+  const mode = modeSelect.value;
+  await fetch(`${BASE_URL}action=write&UID=${UID}&D6=${mode}`);
+});
+
+// Poll every second
+setInterval(pollDevice, 1000);
 </script>
 </body>
 </html>
