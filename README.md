@@ -22,5 +22,5 @@ The toggle switch is not functional. If the IR sensor detects an object nearby, 
 In both cases, the IR sensor output on the dashboard will be present and will turn red if it detects an object nearby.
 
 **BUGS**
+
 The LED is perpetually on and doesn't get affected by the IR sensor. But at the same time, the pin is transmitting a value of 0 as the LED's status which is wrong... since the LED is on.
-Also, I can't figure out how to get a reading from the IoT platform so that I know whether it's in manual or automatic mode. Because of this I can't make the toggle button _not_ control the LED when it's in automatic.
