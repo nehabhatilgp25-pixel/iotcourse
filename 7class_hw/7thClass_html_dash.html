@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOT Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            min-width: 220px;
+            text-align: center;
+        }
+
+        .card button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .card button:hover {
+            background-color: #45a049;
+        }
+
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>IOT Control Panel</h1>
+
+    <div class="dashboard">
+        <!-- Water Pump Control Card -->
+        <div class="card">
+            <h2>Water Pump</h2>
+            <button id="togglePump">Turn On / Off</button>
+            <div class="value">State: <span id="pumpState">Loading...</span></div>
+        </div>
+
+        <!-- Soil Moisture Card -->
+        <div class="card">
+            <h2>Soil Moisture</h2>
+            <div class="value"><span id="soilMoistureValue">Loading...</span></div>
+            <button id="refreshSoilMoisture">Refresh</button>
+        </div>
+    </div>
+
+    <script>
+        const uid = 'NB09';
+        let currentPumpState = 0;
+
+        // Fetch Soil Moisture
+        function fetchSoilMoisture() {
+            const url = `https://iot.roboninja.in/index.php?action=read&UID=${uid}&SoilMoisture`;
+            fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('soilMoistureValue').innerText = data.trim();
+                })
+                .catch(error => {
+                    console.error('Error fetching soil moisture:', error);
+                    document.getElementById('soilMoistureValue').innerText = 'Error';
+                });
+        }
+
+        // Fetch Water Pump (D3) State
+        function fetchPumpState() {
+            const url = `https://iot.roboninja.in/index.php?action=read&UID=${uid}&D3`;
+            fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    currentPumpState = parseInt(data.trim()) || 0;
+                    document.getElementById('pumpState').innerText = currentPumpState === 1 ? 'ON' : 'OFF';
+                })
+                .catch(error => {
+                    console.error('Error fetching pump state:', error);
+                    document.getElementById('pumpState').innerText = 'Error';
+                });
+        }
+
+        // Toggle Water Pump
+        document.getElementById('togglePump').addEventListener('click', () => {
+            const newPumpState = currentPumpState === 0 ? 1 : 0;
+            const url = `https://iot.roboninja.in/index.php?action=write&UID=${uid}&D3=${newPumpState}`;
+
+            fetch(url)
+                .then(response => {
+                    if (response.ok) {
+                        console.log(`Pump state set to: ${newPumpState}`);
+                        fetchPumpState(); // Refresh state after toggle
+                    } else {
+                        console.error('Error toggling pump');
+                    }
+                })
+                .catch(error => console.error('Error toggling pump:', error));
+        });
+
+        // Refresh Soil Moisture button
+        document.getElementById('refreshSoilMoisture').addEventListener('click', fetchSoilMoisture);
+
+        // Initial load
+        fetchSoilMoisture();
+        fetchPumpState();
+    </script>
+</body>
+
+</html>
